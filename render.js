@@ -5,12 +5,10 @@ const apiUrl = "http://dss-todo-server.herokuapp.com/api";
 const ToDo = React.createClass({
   getInitialState: function() {
     this.state = {};
-    // convert string value from Firebase to boolean
-    this.state.isDone = this.props.isDone === "true" ? true : false;
+    this.state.isDone = this.props.isDone.toString() === "true" ? true : false;
     return this.state;
   },
   render: function() {
-    console.log("defaultChecked",this.state.isDone);
     return (
       <label className="todo">
         <input type="checkbox" defaultChecked={this.state.isDone} onClick={this.handleClick}/>
@@ -22,12 +20,14 @@ const ToDo = React.createClass({
   handleClick: function(event) {
     // toggle checkbox
     this.state.isDone = !this.state.isDone;
-    console.log("doing put to",apiUrl + "?key=" + this.props.fbKey + "isDone=" + this.state.isDone);
     $.ajax({
       url: apiUrl + "?key=" + this.props.fbKey + "&isDone=" + this.state.isDone,
       type: "PUT",
-      success: function(data) {
-        console.log("UPDATED");
+      success: () => {
+        console.log("changed isDone to",this.state.isDone);
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        console.log(textStatus, errorThrown);
       }
     });
   }
@@ -37,26 +37,30 @@ const ToDoList = React.createClass({
   getInitialState: function() {
     return {list: []}
   },
-  componentDidMount: function()  {
+  componentDidMount: function() {
     $("#addTask").on("click", this.addTask);
     this.loadToDoListFromServer();
   },
   loadToDoListFromServer: function() {
-    $.get(apiUrl)
-      .done((res) => {
+    $.ajax({
+      url: apiUrl,
+      type: "GET",
+      success: (res) => {
         let foo = [];
-        Object.keys(res.data).forEach((key) => {
-          foo.push({id: key, data: res.data[key]})
-        });
+        if (res.data !== null) {  // res.data will be null if database is empty
+          Object.keys(res.data).forEach((key) => {
+            foo.push({id: key, data: res.data[key]})
+          });
+        }
         this.setState({list: foo.reverse()});  // newest entries are first in list
-      }.bind(this))
-      .fail(() => {
-        console.log("AJAX error");
-      }.bind(this));
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        console.log(textStatus, errorThrown);
+      }
+    });
   },
   render: function() {
-    // conditional render:
-    // don't want to return HTML before AJAX is finished
+    // conditional render: don't return HTML before AJAX is finished
     if (this.state.list.length > 0) {
       return (
         <div className="todoList">
@@ -72,23 +76,25 @@ const ToDoList = React.createClass({
     return list;
   },
   addTask: function(e) {
-    $.post(apiUrl, {text: $("#newTaskName").val(), isDone: false})
-      .done((res) => {
-        let newArray = this.state.list;
-        newArray.unshift({
-          "id": res.data.key,
-          "data": { "isDone" : res.data.isDone,
-                    "text" : res.data.text }
+    $.ajax({
+      url: apiUrl,
+      type: "POST",
+      contentType: "application/json",
+      data: {"text": $("#newTaskName").val(), "isDone": false},
+      success: (res) => {
+        let foo = [];
+        if (res.data !== null) {  // res.data will be null if database is empty
+          Object.keys(res.data).forEach((key) => {
+            foo.push({id: key, data: res.data[key]})
           });
-        this.setState({list: newArray});  // setState triggers new render
-      })
-      .fail((err) => {
-        console.log(err);
-      });
+        }
+        this.setState({list: foo.reverse()});  // newest entries are first in list
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        console.log(textStatus, errorThrown);
+      }
+    })
   }
-})
+});
 
-ReactDOM.render(
-  React.createElement(ToDoList,null),
-                      document.getElementById("content")
-);
+ReactDOM.render(React.createElement(ToDoList,null), document.getElementById("content"));
