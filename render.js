@@ -1,6 +1,6 @@
 "use strict";
 
-const apiUrl = "http://dss-todo.herokuapp.com/api";
+const apiUrl = "http://dss-todo-server.herokuapp.com/api";
 
 const ToDo = React.createClass({
   getInitialState: function() {
